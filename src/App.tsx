@@ -84,7 +84,7 @@ export default function App() {
       }
       if (event.type === "network") {
         const status = typeof event.status === "number" ? ` ${event.status}` : "";
-        const detail = event.phase === "failed" ? event.errorText : event.url;
+        const detail = event.text || (event.phase === "failed" ? event.errorText : event.url);
         const source = `${event.method || event.resourceType || "HTTP"}${status}`.trim();
         const eventLevel = event.phase === "failed" || Number(event.status || 0) >= 400 ? "error" : "info";
         setNetworkLogs((current) => [...current.slice(-1999), { ...event, source, text: detail || "Network event", level: eventLevel, key: logKey.current++ }]);
@@ -142,7 +142,8 @@ export default function App() {
   };
 
   const clearActive = () => {
-    if (activeTab === "network") setNetworkLogs([]);
+    if (activeTab === "problems") { setLogs([]); setWebViewLogs([]); setNetworkLogs([]); }
+    else if (activeTab === "network") setNetworkLogs([]);
     else if (activeTab === "console") setWebViewLogs([]);
     else setLogs([]);
   };
@@ -244,12 +245,19 @@ export default function App() {
 
             <div className="log-view">
               {displayed.length === 0 ? <div className="empty-state"><TerminalSquare size={22} /><strong>{activeTab === "problems" ? "No problems detected" : activeTab === "network" ? "No network activity" : activeTab === "console" ? "No WebView console output" : "No process output"}</strong><span>{activeTab === "network" || activeTab === "console" ? webViewStatus.detail : project ? "Start a run to stream output" : "Select a project to begin"}</span></div>
+              : activeTab === "problems" ? displayed.map((item) => <article className={`problem-card ${item.level || "error"}`} key={item.key}>
+                  <header>
+                    <AlertCircle size={16} />
+                    <div><strong>{item.problem?.title || "Runtime error"}</strong><span>{item.source || "Unknown source"} · {item.at ? new Date(item.at).toLocaleTimeString([], { hour12: false }) : ""}</span></div>
+                    <button className={`row-copy ${copiedKey === `problem-${item.key}` ? "copied" : ""}`} title={copiedKey === `problem-${item.key}` ? "Copied" : "Copy full diagnostic"} onClick={() => copyText(`problem-${item.key}`, `${item.problem?.title || "Runtime error"}\n[${item.source || "unknown"}] ${item.text || ""}`)}>{copiedKey === `problem-${item.key}` ? <Check size={13} /> : <Clipboard size={13} />}</button>
+                  </header>
+                  <pre>{item.text}</pre>
+                </article>)
               : displayed.map((item) => <div className={`log-line ${item.level || "info"}`} key={item.key}>
                   <time>{item.at ? new Date(item.at).toLocaleTimeString([], { hour12: false }) : ""}</time>
                   <span className="log-source">{item.source}</span>
                   <pre>{item.text}</pre>
                   {(item.problem || item.level === "error") && <span className="problem-tag">{item.problem?.title || "Error"}</span>}
-                  {activeTab === "problems" && <button className={`row-copy ${copiedKey === `problem-${item.key}` ? "copied" : ""}`} title="Copy error" onClick={() => copyText(`problem-${item.key}`, item.text || "")}>{copiedKey === `problem-${item.key}` ? <Check size={12} /> : <Clipboard size={12} />}</button>}
                 </div>)}
               <div ref={logEnd} />
             </div>

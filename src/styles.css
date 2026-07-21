@@ -143,6 +143,18 @@ button { border: 0; }
 .problem-tag { align-self: start; padding: 2px 5px; color: #f3b4b4; background: #572f35; border-radius: 3px; font: 8px "Segoe UI", sans-serif; white-space: nowrap; }
 .row-copy { width: 21px; height: 21px; display: grid; place-items: center; align-self: center; color: var(--faint); background: transparent; border-radius: 3px; cursor: pointer; }
 .row-copy:hover { color: var(--text); background: var(--surface-3); }
+.problem-card { margin: 8px 10px; overflow: hidden; color: #e8c1c1; background: #21181b; border: 1px solid #553239; border-left: 3px solid var(--red); border-radius: 6px; }
+.problem-card.warn { color: #ded0aa; background: #211e18; border-color: #51462f; border-left-color: var(--yellow); }
+.problem-card header { min-height: 48px; display: grid; grid-template-columns: 20px minmax(0, 1fr) 28px; align-items: center; gap: 8px; padding: 7px 10px; background: #291c20; border-bottom: 1px solid #442a30; }
+.problem-card.warn header { background: #282319; border-bottom-color: #443a27; }
+.problem-card header > svg { color: var(--red); }
+.problem-card.warn header > svg { color: var(--yellow); }
+.problem-card header > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.problem-card header strong { overflow: hidden; color: #f1d4d4; font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.problem-card.warn header strong { color: #eadbae; }
+.problem-card header span { overflow: hidden; color: #a77980; font: 9px Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.problem-card pre { max-height: 360px; margin: 0; padding: 11px 12px 13px; overflow: auto; color: #dfc9cc; font: 10px/1.65 Consolas, "Courier New", monospace; overflow-wrap: anywhere; white-space: pre-wrap; scrollbar-color: #57373d transparent; scrollbar-width: thin; }
+.problem-card.warn pre { color: #d8cda9; }
 .empty-state { height: 100%; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #555d68; }
 .empty-state strong { color: #848c97; font-size: 11px; font-weight: 500; }
 .empty-state span { font-size: 9px; }

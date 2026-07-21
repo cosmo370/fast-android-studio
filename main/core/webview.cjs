@@ -19,6 +19,24 @@ function remoteValue(value) {
   return value.description || value.unserializableValue || value.type || "undefined";
 }
 
+function formatStackTrace(stackTrace) {
+  const lines = [];
+  let current = stackTrace;
+  while (current) {
+    for (const frame of current.callFrames || []) {
+      const name = frame.functionName || "<anonymous>";
+      lines.push(`    at ${name} (${frame.url || "<anonymous>"}:${Number(frame.lineNumber) + 1}:${Number(frame.columnNumber) + 1})`);
+    }
+    current = current.parent;
+  }
+  return lines.join("\n");
+}
+
+function truncateBody(body, limit = 6000) {
+  const value = String(body || "").trim();
+  return value.length > limit ? `${value.slice(0, limit)}\n... response truncated` : value;
+}
+
 class WebViewInspector {
   constructor({ adb, serial, packageId, emit, log }) {
     this.adb = adb;
@@ -32,6 +50,8 @@ class WebViewInspector {
     this.stopped = false;
     this.reconnectTimer = null;
     this.reconnecting = false;
+    this.requests = new Map();
+    this.failedResponses = new Map();
   }
 
   async discoverSocket() {
@@ -97,9 +117,11 @@ class WebViewInspector {
     const { Runtime, Log, Network } = this.client;
     await Promise.all([Runtime.enable(), Log.enable(), Network.enable()]);
 
-    Runtime.consoleAPICalled(({ type, args, timestamp }) => {
+    Runtime.consoleAPICalled(({ type, args, timestamp, stackTrace }) => {
       const level = type === "error" || type === "assert" ? "error" : type === "warning" ? "warn" : "info";
-      this.emit("webview-console", { level, text: args.map(remoteValue).join(" "), timestamp });
+      const message = args.map(remoteValue).join(" ");
+      const stack = formatStackTrace(stackTrace);
+      this.emit("webview-console", { level, text: stack ? `${message}\n${stack}` : message, timestamp });
     });
     Runtime.exceptionThrown(({ exceptionDetails, timestamp }) => {
       const exception = exceptionDetails.exception?.description || exceptionDetails.text;
@@ -108,14 +130,39 @@ class WebViewInspector {
     Log.entryAdded(({ entry }) => {
       this.emit("webview-console", { level: entry.level === "warning" ? "warn" : entry.level, text: entry.text, url: entry.url, timestamp: entry.timestamp });
     });
-    Network.requestWillBeSent(({ requestId, request, type, timestamp }) => {
-      this.emit("network", { phase: "request", requestId, method: request.method, url: request.url, resourceType: type, timestamp });
+    Network.requestWillBeSent(({ requestId, request, type, timestamp, initiator }) => {
+      const details = { requestId, method: request.method, url: request.url, resourceType: type, timestamp, initiator: formatStackTrace(initiator?.stack) };
+      this.requests.set(requestId, details);
+      if (this.requests.size > 2000) this.requests.delete(this.requests.keys().next().value);
+      this.emit("network", { phase: "request", ...details });
     });
     Network.responseReceived(({ requestId, response, type, timestamp }) => {
-      this.emit("network", { phase: "response", requestId, method: response.requestHeadersText ? undefined : "", url: response.url, status: response.status, statusText: response.statusText, resourceType: type, timestamp });
+      const request = this.requests.get(requestId) || {};
+      const details = { phase: "response", ...request, requestId, url: response.url, status: response.status, statusText: response.statusText, resourceType: type, timestamp };
+      if (Number(response.status) >= 400) this.failedResponses.set(requestId, details);
+      else this.emit("network", details);
+    });
+    Network.loadingFinished(async ({ requestId, timestamp }) => {
+      const failed = this.failedResponses.get(requestId);
+      if (failed) {
+        let responseBody = "";
+        try { responseBody = truncateBody((await Network.getResponseBody({ requestId })).body); } catch { /* Some responses have no readable body. */ }
+        const heading = `${failed.resourceType || "HTTP"} ${failed.status}${failed.statusText ? ` ${failed.statusText}` : ""}`;
+        const parts = [heading, `${failed.method || "GET"} ${failed.url}`];
+        if (responseBody) parts.push(`Response:\n${responseBody}`);
+        if (failed.initiator) parts.push(`Initiator:\n${failed.initiator}`);
+        this.emit("network", { ...failed, timestamp, responseBody, text: parts.join("\n\n") });
+      }
+      this.failedResponses.delete(requestId);
+      this.requests.delete(requestId);
     });
     Network.loadingFailed(({ requestId, errorText, type, canceled, timestamp }) => {
-      this.emit("network", { phase: "failed", requestId, errorText, resourceType: type, canceled, timestamp });
+      const request = this.requests.get(requestId) || {};
+      const parts = [`${request.method || type || "HTTP"} request failed`, request.url || requestId, errorText];
+      if (request.initiator) parts.push(`Initiator:\n${request.initiator}`);
+      this.emit("network", { phase: "failed", ...request, requestId, errorText, resourceType: type, canceled, timestamp, text: parts.filter(Boolean).join("\n\n") });
+      this.failedResponses.delete(requestId);
+      this.requests.delete(requestId);
     });
   }
 
@@ -136,4 +183,4 @@ class WebViewInspector {
   }
 }
 
-module.exports = { WebViewInspector, parseWebViewSockets, remoteValue };
+module.exports = { WebViewInspector, formatStackTrace, parseWebViewSockets, remoteValue, truncateBody };

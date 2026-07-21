@@ -7,6 +7,7 @@ const { diagnoseEnvironment } = require("./environment.cjs");
 const { exec, listDevices, listAvds } = require("./adb.cjs");
 const { classify, genericProblem, redactSecrets } = require("./errors.cjs");
 const { WebViewInspector } = require("./webview.cjs");
+const { enrichErrorText } = require("./source-context.cjs");
 
 const STEPS = ["environment", "dependencies", "target", "server", "bridge", "sync", "build", "launch", "logs"];
 
@@ -197,7 +198,7 @@ class Runner {
         emit: (type, payload) => {
           const safePayload = { ...payload };
           if (safePayload.text) {
-            safePayload.text = redactSecrets(safePayload.text);
+            safePayload.text = redactSecrets(enrichErrorText(safePayload.text, project.root));
             const problem = classify(safePayload.text) || (safePayload.level === "error" ? genericProblem("WebView console error", "webview-error") : null);
             if (problem) {
               safePayload.problem = problem;

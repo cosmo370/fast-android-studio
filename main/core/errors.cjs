@@ -1,6 +1,6 @@
 const RULES = [
   { id: "react-hydration", severity: "error", pattern: /hydration (failed|mismatch)|react.*#418/i, title: "React hydration failure" },
-  { id: "api-401", severity: "error", pattern: /(?:\/api\/\S*|http\S+)\s*(?:returned|status|-)?:?\s*401|401\s+\(Unauthorized\)/i, title: "API authorization failure" },
+  { id: "api-401", severity: "error", pattern: /(?:\/api\/\S*|http\S+)\s*(?:returned|status|-)?:?\s*401|401\s+\(?Unauthorized\)?|(?:Error:\s*)?Unauthorized\b/i, title: "API authorization failure" },
   { id: "preferences-fallback", severity: "warn", pattern: /Preferences.*(?:not implemented|unavailable)|Native auth storage.*failed.*localStorage/i, title: "Native storage fallback" },
   { id: "supabase-auth", severity: "error", pattern: /supabase.*(?:session|auth|jwt|refresh).*(?:fail|error|expired|missing)|AuthRetryableFetchError/i, title: "Supabase session failure" },
   { id: "gradle", severity: "error", pattern: /FAILURE: Build failed|Execution failed for task|Could not resolve all files/i, title: "Gradle build failure" },

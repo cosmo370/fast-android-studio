@@ -31,6 +31,8 @@ export interface ConsoleEvent {
   statusText?: string;
   resourceType?: string;
   errorText?: string;
+  responseBody?: string;
+  initiator?: string;
   timestamp?: number;
 }
 export interface RunConfig { projectPath: string; target: string; mode: "development" | "production"; port: number; packageId?: string }

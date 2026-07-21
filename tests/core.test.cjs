@@ -7,7 +7,8 @@ const { detectProject, findPackageManager } = require("../main/core/project.cjs"
 const { parseDevices } = require("../main/core/adb.cjs");
 const { classify, genericProblem, redactSecrets } = require("../main/core/errors.cjs");
 const { commandPath, diagnoseEnvironment } = require("../main/core/environment.cjs");
-const { parseWebViewSockets, remoteValue } = require("../main/core/webview.cjs");
+const { formatStackTrace, parseWebViewSockets, remoteValue } = require("../main/core/webview.cjs");
+const { enrichErrorText, findSourceFrames } = require("../main/core/source-context.cjs");
 
 function fixture(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mobile-console-"));
@@ -48,6 +49,7 @@ test("parses authorized, unauthorized, and emulator devices", () => {
 test("classifies high-value runtime errors", () => {
   assert.equal(classify("React hydration failed with error #418").id, "react-hydration");
   assert.equal(classify("GET /api/session status: 401").id, "api-401");
+  assert.equal(classify("[DM] background upload failed Error: Unauthorized").id, "api-401");
   assert.equal(classify("FAILURE: Build failed with an exception.").id, "gradle");
   assert.equal(classify("GET /missing status 404").id, "http-error");
   assert.equal(classify("HTTP/1.1 503 Service Unavailable").id, "http-error");
@@ -84,4 +86,17 @@ test("discovers the WebView DevTools socket for the active process", () => {
     "00000000: 00000002 00000000 00010000 0001 01 12346 @webview_devtools_remote_99\n";
   assert.deepEqual(parseWebViewSockets(output, "99"), ["webview_devtools_remote_99", "webview_devtools_remote_42"]);
   assert.equal(remoteValue({ value: { ok: true } }), '{"ok":true}');
+});
+
+test("formats CDP call frames with browser-style source locations", () => {
+  const stack = formatStackTrace({ callFrames: [{ functionName: "upload", url: "lib/upload/xhr-upload.ts", lineNumber: 48, columnNumber: 15 }] });
+  assert.equal(stack, "    at upload (lib/upload/xhr-upload.ts:49:16)");
+});
+
+test("adds local source context to a captured browser stack", () => {
+  const root = fixture({ "lib/upload/xhr-upload.ts": "line one\nline two\nreject(new Error(message));\nline four\nline five" });
+  const detail = enrichErrorText("Error: Unauthorized\n    at xhr.onload (lib/upload/xhr-upload.ts:3:8)", root);
+  assert.match(detail, /Source: lib\/upload\/xhr-upload\.ts:3:8/);
+  assert.match(detail, /> 3 \| reject\(new Error\(message\)\);/);
+  assert.equal(findSourceFrames("at x (../outside.ts:1:1)", root).length, 0);
 });
