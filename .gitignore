@@ -1,0 +1,24 @@
+node_modules/
+dist/
+packages/
+installer/
+release/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+
+# Local research and upstream source checkouts
+vscodium/
+chrome-remote-interface/
+
+# Local design intermediates and screenshots
+build/icon-source.png
+console-*.png
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
