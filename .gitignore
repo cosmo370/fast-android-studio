@@ -4,6 +4,7 @@ packages/
 installer/
 release/
 coverage/
+packages/action-logs*/
 *.log
 .env
 .env.*

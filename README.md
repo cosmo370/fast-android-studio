@@ -48,7 +48,7 @@ npm run build
 npm run package:win
 ```
 
-The installer is written to `packages/Fast-Android-Studio-Setup-<version>.exe`.
+The environment-aware packaging script reuses a local Electron runtime when available and downloads it on CI. The installer is written to `packages/Fast-Android-Studio-Setup-<version>.exe`.
 
 ## Security
 
